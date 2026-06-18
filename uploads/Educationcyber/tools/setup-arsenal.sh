@@ -105,7 +105,11 @@ phase_web() {
   git_tool commix commixproject/commix commix.py
   git_tool joomscan OWASP/joomscan joomscan.pl
   if have gem; then
-    if gem install --no-document wpscan >/dev/null 2>&1; then ok "wpscan (gem)"; else warn "wpscan gem failed"; fi
+    if gem install --no-document wpscan >/dev/null 2>&1 && have wpscan; then
+      ok "wpscan (gem)"
+    else
+      warn "wpscan install failed or command not on PATH"
+    fi
   else
     warn "gem not found; could not install wpscan"
   fi
@@ -132,7 +136,7 @@ phase_ad() {
   gh_bin kerbrute ropnop/kerbrute "kerbrute_linux_amd64" raw
   git_tool Responder lgandx/Responder Responder.py
   if have gem; then
-    if gem install --no-document evil-winrm >/dev/null 2>&1; then ok "evil-winrm (gem)"; else warn "evil-winrm gem failed"; fi
+    if gem install --no-document evil-winrm >/dev/null 2>&1 && have evil-winrm; then ok "evil-winrm (gem)"; else warn "evil-winrm install failed or command not on PATH"; fi
   fi
   log "  netexec (nxc) — install the 'password' phase — is your AD swiss-army knife."
 }

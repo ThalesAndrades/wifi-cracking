@@ -14,8 +14,10 @@ import logging
 # Fall back to the stdlib parser if defusedxml is not installed.
 try:
     from defusedxml import ElementTree as ET
+    from defusedxml.common import DefusedXmlException
 except ImportError:  # pragma: no cover - fallback when defusedxml is unavailable
     import xml.etree.ElementTree as ET
+    DefusedXmlException = ET.ParseError
 
 from ._runner import run_command, tool_available, validate_arg, invalid_arg, missing_dependency
 
@@ -91,7 +93,7 @@ def nmap_scan(target: str, scan_type: str = "service", ports: str | None = None,
                         "version": service_el.get("version") if service_el is not None else None,
                     })
                 hosts.append({"address": address, "ports": ports_data})
-        except ET.ParseError as exc:
+        except (ET.ParseError, DefusedXmlException) as exc:
             logger.debug("nmap XML parse failed: %s", exc)
 
     result["hosts"] = hosts

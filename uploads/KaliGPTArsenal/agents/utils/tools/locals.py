@@ -50,7 +50,8 @@ def get_local_server_content(url: str, timeout: int = 5) -> dict[str, bool | Non
         response = requests.get(
             url,
             timeout=timeout,
-            headers={"User-Agent": "LocalScraper/1.0"}
+            headers={"User-Agent": "LocalScraper/1.0"},
+            allow_redirects=False,  # don't let a redirect bounce us off localhost
         )
     except requests.RequestException as exc:
         return {
@@ -99,7 +100,7 @@ def execute_generic_linux_command(command: str, use_shell: bool = False, timeout
    Returns:
         dictionary of response -> {"output": output, "error": error}
     """
-    if not authorized:
+    if authorized is not True:
         return {
             "output": None,
             "error": "Refused: pass authorized=True to execute generic commands.",

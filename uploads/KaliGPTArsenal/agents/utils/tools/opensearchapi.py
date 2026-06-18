@@ -33,11 +33,17 @@ def check_search_connection(timeout: int = 5) -> dict:
         dict -> {success, connected, url, error}
     """
     url = f"{_base_url()}/health"
+    if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
+        return {"success": False, "connected": False, "url": url,
+                "error": "timeout must be a positive number"}
     try:
         response = requests.get(url, timeout=timeout)
-    except requests.RequestException as exc:
+    except (requests.RequestException, ValueError, TypeError) as exc:
         return {"success": False, "connected": False, "url": url, "error": str(exc)}
-    return {"success": response.ok, "connected": response.ok, "url": url, "error": None}
+    if not response.ok:
+        return {"success": False, "connected": False, "url": url,
+                "error": f"HTTP {response.status_code}"}
+    return {"success": True, "connected": True, "url": url, "error": None}
 
 
 def keyword_search(query: str, top_k: int = 5, timeout: int = 15) -> dict:
@@ -73,9 +79,11 @@ def search_as_RAG(query: str, top_k: int = 5, timeout: int = 30) -> dict:
 def _post(path: str, payload: dict, key: str, timeout: int) -> dict:
     """Shared POST helper returning a uniform {success, <key>, error} dict."""
     url = f"{_base_url()}{path}"
+    if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
+        return {"success": False, key: None, "error": "timeout must be a positive number"}
     try:
         response = requests.post(url, json=payload, timeout=timeout)
-    except requests.RequestException as exc:
+    except (requests.RequestException, ValueError, TypeError) as exc:
         return {"success": False, key: None, "error": str(exc)}
     if not response.ok:
         return {"success": False, key: None, "error": f"HTTP {response.status_code}"}

@@ -46,8 +46,11 @@ def test_hash_identify_requires_no_authorization():
     assert "authorized=True" not in (result.get("error") or "")
 
 
-def test_hash_identify_accepts_modular_hash_format():
+def test_hash_identify_accepts_modular_hash_format(monkeypatch):
     # '$'-prefixed modular hashes (bcrypt, sha512crypt, ...) are valid input and
-    # must not be rejected by argument validation before hashid runs.
-    result = kali_offensive.hash_identify("$6$salt$hashvalue")
-    assert "Invalid hash_value" not in (result.get("error") or "")
+    # must survive argument validation and reach hashid unchanged.
+    captured = {}
+    monkeypatch.setattr(kali_offensive, "run_command",
+                        lambda args, **kw: captured.setdefault("args", args) or {"success": True})
+    kali_offensive.hash_identify("$6$salt$hashvalue")
+    assert captured["args"] == ["hashid", "$6$salt$hashvalue"]

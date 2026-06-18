@@ -86,6 +86,7 @@ TOOL_CATEGORIES = {
 DUAL_USE_TOOLS = {
     "sqlmap_test", "hydra_spray", "hashcat_crack",
     "execute_generic_linux_command",
+    "web_request_analysis", "get_raw_response",
 }
 
 

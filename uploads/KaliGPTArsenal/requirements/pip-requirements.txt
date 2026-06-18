@@ -1,0 +1,6 @@
+# Runtime dependencies for the KaliGPT tool wrappers.
+# defusedxml is REQUIRED (not optional): nmap output is untrusted and is parsed
+# with the hardened parser to mitigate XXE / entity-expansion attacks.
+requests
+beautifulsoup4
+defusedxml

@@ -41,10 +41,19 @@ else
   URL="http://$TARGET"
 fi
 # Keep host and (optional) explicit port separate so we can scan the real port.
+# Handle bracketed IPv6 ([::1]:8080) as well as host:port, and validate the port.
 AUTHORITY="$(printf '%s' "$URL" | sed -E 's#^https?://##; s#/.*$##')"
-HOST="${AUTHORITY%%:*}"
-PORT=""
-[[ "$AUTHORITY" == *:* ]] && PORT="${AUTHORITY##*:}"
+HOST=""; PORT=""
+if [[ "$AUTHORITY" =~ ^\[([0-9A-Fa-f:]+)\](:([0-9]{1,5}))?$ ]]; then
+  HOST="${BASH_REMATCH[1]}"; PORT="${BASH_REMATCH[3]}"
+elif [[ "$AUTHORITY" =~ ^([^:]+)(:([0-9]{1,5}))?$ ]]; then
+  HOST="${BASH_REMATCH[1]}"; PORT="${BASH_REMATCH[3]}"
+else
+  echo -e "${RED}Invalid target URL authority: ${AUTHORITY}${RST}" >&2; usage 1
+fi
+if [ -n "$PORT" ] && { [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; }; then
+  echo -e "${RED}Invalid port in URL: ${PORT}${RST}" >&2; usage 1
+fi
 SCHEME="$(printf '%s' "$URL" | grep -oP '^https?')"
 
 : "${OUTDIR:=webrecon-${HOST}-$(date +%Y%m%d-%H%M%S)}"
