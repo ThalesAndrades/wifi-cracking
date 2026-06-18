@@ -57,6 +57,10 @@ def trufflehog_scan(target: str, source: str = "filesystem", only_verified: bool
                 continue
     result["secrets"] = secrets
     result["count"] = len(secrets)
+    # Drop raw stdout: it can contain the full plaintext secrets. The structured
+    # 'secrets' summary above carries everything the model needs.
+    if result.get("output"):
+        result["output"] = None
     return result
 
 
@@ -94,6 +98,10 @@ def gitleaks_scan(repo_path: str, timeout: int = 600) -> dict:
             logger.debug("gitleaks JSON parse failed: %s", exc)
     result["findings"] = findings
     result["count"] = len(findings)
+    # Drop raw stdout: the gitleaks JSON embeds full secret values. The redacted
+    # 'findings' summary (with truncated previews) is the safe representation.
+    if result.get("output"):
+        result["output"] = None
     return result
 
 

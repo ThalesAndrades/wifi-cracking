@@ -44,3 +44,10 @@ def test_hash_identify_requires_no_authorization():
     # must never return the authorization refusal.
     result = kali_offensive.hash_identify("5f4dcc3b5aa765d61d8327deb882cf99")
     assert "authorized=True" not in (result.get("error") or "")
+
+
+def test_hash_identify_accepts_modular_hash_format():
+    # '$'-prefixed modular hashes (bcrypt, sha512crypt, ...) are valid input and
+    # must not be rejected by argument validation before hashid runs.
+    result = kali_offensive.hash_identify("$6$salt$hashvalue")
+    assert "Invalid hash_value" not in (result.get("error") or "")

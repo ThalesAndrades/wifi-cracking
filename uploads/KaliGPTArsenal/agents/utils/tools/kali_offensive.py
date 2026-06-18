@@ -37,7 +37,12 @@ def hash_identify(hash_value: str) -> dict:
     Returns:
         dict with the raw hashid output plus runner status.
     """
-    if not validate_arg(hash_value):
+    # NB: don't use the strict validate_arg() here — it rejects '$', which is
+    # part of valid modular hash formats (bcrypt "$2a$...", sha512crypt "$6$...").
+    # Run as a single argv element (no shell), so only reject empty values and
+    # whitespace (which would split into multiple hashid arguments).
+    if (not isinstance(hash_value, str) or not hash_value
+            or any(ch in "\n\r\t " for ch in hash_value)):
         return invalid_arg("hash_value", hash_value)
     return run_command(["hashid", hash_value], timeout=15)
 
@@ -92,6 +97,9 @@ def hydra_spray(target: str, service: str, username: str | None = None,
     for name, val in (("target", target), ("service", service)):
         if not validate_arg(val):
             return invalid_arg(name, val)
+
+    if username and userlist:
+        return _result(False, error="Provide exactly one of username or userlist")
 
     args = ["hydra"]
     if username:

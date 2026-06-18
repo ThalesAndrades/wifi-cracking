@@ -47,10 +47,22 @@ cd lab && docker compose up -d
 
 ## ☁️ Claude Code on the web
 
-O repositório tem um **SessionStart hook** (`.claude/hooks/session-start.sh`) que
-instala automaticamente o núcleo de dependências (nmap, hydra, fping, metasploit,
-nuclei, nikto, etc.) toda vez que uma sessão web inicia — não precisa instalar
-nada à mão. O arsenal completo (`setup-arsenal.sh`) é separado/opt-in por ser pesado.
+O **SessionStart hook** (`.claude/hooks/session-start.sh`) instala o núcleo de
+dependências (nmap, hydra, fping, nikto, etc.) automaticamente no início de uma
+sessão web — **mas só funciona quando este diretório está na raiz do repositório**
+(o hook é descoberto via `.claude/` na raiz). Se o projeto estiver aninhado (por
+exemplo dentro de `uploads/`), o hook **não** roda automaticamente; nesse caso
+instale manualmente:
+
+```bash
+# a partir da pasta deste projeto:
+bash .claude/hooks/session-start.sh          # núcleo via apt
+./tools/setup-arsenal.sh --list              # ver fases do arsenal completo
+```
+
+Os instaladores remotos pesados (Metasploit ~900 MB, nuclei) são **opt-in**: o
+hook só os baixa quando `EDUCATIONCYBER_INSTALL_REMOTE_TOOLS=true` está definido.
+O arsenal completo (`setup-arsenal.sh`) também é separado/opt-in por ser pesado.
 
 ---
 
