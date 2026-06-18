@@ -1,0 +1,140 @@
+# Immediate manual-dispatch action to provision and download KaliGPT's internal
+# desktop tools (system packages, Python deps, OpenSearchAPI backend) and to
+# validate the AI agent tool registry used for internal desktop improvement.
+#
+# Trigger it on demand from the GitHub "Actions" tab (Run workflow) or via the
+# GitHub CLI:  gh workflow run "Desktop Tools Dispatch (HackerX)"
+#
+# /KaliGPT/.github/workflows/desktop_tools_dispatch.yml
+# by SudoHopeX ( https://github.com/SudoHopeX )
+
+name: Desktop Tools Dispatch (HackerX)
+
+on:
+  workflow_dispatch:          # Immediate manual trigger ("acionar despacho")
+    inputs:
+      components:
+        description: "Which desktop tool sets to provision and download"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - python-only
+          - system-only
+          - tools-registry-only
+      install_opensearchapi:
+        description: "Also download the OpenSearchAPI search backend"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  provision-desktop-tools:
+    name: Provision & Download Desktop Tools
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        if: ${{ inputs.components != 'system-only' }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system packages (desktop runtime deps)
+        if: ${{ inputs.components == 'all' || inputs.components == 'system-only' }}
+        run: |
+          echo "::group::Installing KaliGPT system dependencies"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            curl git bash \
+            libxml2 libxslt1.1 \
+            libjpeg-turbo8 libpng16-16 libfreetype6 liblcms2-2 libopenjp2-7 libtiff6 \
+            make pkg-config clang \
+            chromium-browser xvfb || \
+          sudo apt-get install -y --no-install-recommends \
+            curl git bash libxml2 libxslt1.1 make pkg-config clang xvfb
+          if ! command -v chromium-browser >/dev/null 2>&1 && ! command -v chromium >/dev/null 2>&1; then
+            echo "::warning::chromium not installed; the OpenSearchAPI browser backend may not function."
+          fi
+          echo "::endgroup::"
+
+      - name: Download & install Python tool dependencies
+        if: ${{ inputs.components == 'all' || inputs.components == 'python-only' }}
+        run: |
+          echo "::group::Installing pip requirements"
+          python -m pip install --upgrade pip
+          pip install -r requirements/pip-requirements.txt
+          echo "::endgroup::"
+
+      - name: Run test suite
+        if: ${{ inputs.components != 'system-only' }}
+        run: |
+          echo "::group::Running pytest"
+          pip install -r requirements/dev-requirements.txt
+          pytest -q
+          echo "::endgroup::"
+
+      - name: Download OpenSearchAPI search backend
+        if: ${{ (inputs.components == 'all' || inputs.components == 'python-only') && inputs.install_opensearchapi }}
+        run: |
+          echo "::group::Cloning OpenSearchAPI"
+          git clone --depth 1 https://github.com/SudoHopeX/OpenSearchAPI.git vendor/OpenSearchAPI \
+            && echo "OpenSearchAPI downloaded to vendor/OpenSearchAPI" \
+            || echo "::warning::OpenSearchAPI clone failed (repository may be private or unavailable)"
+          echo "::endgroup::"
+
+      - name: Validate KaliGPT agent tool registry
+        if: ${{ inputs.components != 'system-only' }}
+        id: registry
+        run: |
+          echo "::group::Listing available desktop tools"
+          mkdir -p dist
+          python - <<'PY' | tee dist/desktop-tools-manifest.txt
+          from agents.utils.tools import get_available_tools_data
+
+          tools = get_available_tools_data()
+          print(f"KaliGPT exposes {len(tools)} internal desktop tools:\n")
+          for name, desc in tools.items():
+              print(f"- {name}: {desc}")
+          PY
+          echo "::endgroup::"
+
+      - name: Generate provisioning report
+        run: |
+          mkdir -p dist
+          {
+            echo "# KaliGPT Desktop Tools Provisioning Report"
+            echo ""
+            echo "- Triggered by: ${{ github.actor }}"
+            echo "- Run id: ${{ github.run_id }}"
+            echo "- Components: ${{ inputs.components }}"
+            echo "- OpenSearchAPI requested: ${{ inputs.install_opensearchapi }}"
+            echo "- Timestamp (UTC): $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo ""
+            if [ -f dist/desktop-tools-manifest.txt ]; then
+              echo "## Tool Registry"
+              echo ""
+              echo '```'
+              cat dist/desktop-tools-manifest.txt
+              echo '```'
+            fi
+          } > dist/provisioning-report.md
+          cat dist/provisioning-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload downloadable tools bundle
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882  # v4.4.3
+        with:
+          name: kaligpt-desktop-tools
+          path: dist/
+          if-no-files-found: warn
+          retention-days: 14

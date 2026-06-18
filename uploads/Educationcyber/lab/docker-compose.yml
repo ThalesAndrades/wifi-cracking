@@ -1,0 +1,47 @@
+# Practice lab — deliberately vulnerable targets for AUTHORIZED practice only.
+#
+#   docker compose up -d        # start all targets
+#   docker compose ps           # see ports
+#   docker compose down         # stop & remove
+#
+# SECURITY: bind only to localhost (127.0.0.1) so the vulnerable apps are NEVER
+# exposed to your network/the internet. Practice from the same machine, or over
+# a host-only network. These images are FULL OF HOLES by design.
+services:
+  # OWASP Juice Shop — modern web app vulns (XSS, SQLi, JWT, broken auth...).
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    container_name: lab-juiceshop
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+
+  # DVWA — classic web vulns with selectable difficulty (SQLi, XSS, upload...).
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    container_name: lab-dvwa
+    ports:
+      - "127.0.0.1:8080:80"
+    restart: unless-stopped
+
+  # bWAPP — 100+ web vulnerabilities for broad coverage.
+  bwapp:
+    image: raesene/bwapp:latest
+    container_name: lab-bwapp
+    ports:
+      - "127.0.0.1:8081:80"
+    restart: unless-stopped
+
+  # Metasploitable 2 — network/service exploitation (FTP, SMB, Samba, etc.)
+  # Pairs with hackerEnv. Heavy image; enable with: docker compose --profile net up -d
+  metasploitable:
+    image: tleemcjr/metasploitable2:latest
+    container_name: lab-metasploitable2
+    command: ["/bin/sh", "-c", "/etc/rc.local; tail -f /dev/null"]
+    ports:
+      - "127.0.0.1:2121:21"   # ftp
+      - "127.0.0.1:2222:22"   # ssh
+      - "127.0.0.1:8023:23"   # telnet
+      - "127.0.0.1:4445:445"  # smb
+    profiles: ["net"]
+    restart: unless-stopped
