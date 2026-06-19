@@ -74,6 +74,7 @@ O arsenal completo (`setup-arsenal.sh`) também é separado/opt-in por ser pesad
 - [Active Directory (metodologia)](docs/AD.md) — ataque a redes Windows/AD
 - [OSINT](docs/OSINT.md) · [Cloud (AWS/Azure/GCP)](docs/CLOUD.md) · [Mobile (APK)](docs/MOBILE.md)
 - [Walkthrough guiado](docs/WALKTHROUGH.md) — do recon ao relatório, passo a passo
+- [Guia de Ferramentas do Kali](docs/GUIA-KALI-TOOLS.md) — referência compacta (o que é + comando) por ferramenta
 - [Laboratório de prática](lab/README.md) — alvos vulneráveis legais
 
 ---
