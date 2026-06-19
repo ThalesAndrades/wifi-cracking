@@ -4,11 +4,13 @@
 # Updated: 28 Jan 2026
 
 
+import ipaddress
 import shlex
 import requests
 
 from bs4 import BeautifulSoup
 from subprocess import Popen, PIPE, TimeoutExpired
+from urllib.parse import urlparse
 
 
 def get_local_server_content(url: str, timeout: int = 5) -> dict[str, bool | None | str] | dict[
@@ -29,11 +31,27 @@ def get_local_server_content(url: str, timeout: int = 5) -> dict[str, bool | Non
                     }
     """
 
+    # Restrict to localhost/loopback targets: this helper is for local servers
+    # only, and accepting arbitrary URLs would expose an SSRF path for probing
+    # internal hosts or cloud metadata endpoints.
+    host = urlparse(url).hostname
+    if not host:
+        return {"success": False, "status_code": None,
+                "error": "Invalid URL", "content": None}
+    try:
+        is_local = host == "localhost" or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        is_local = host == "localhost"
+    if not is_local:
+        return {"success": False, "status_code": None,
+                "error": "Only localhost/loopback URLs are allowed", "content": None}
+
     try:
         response = requests.get(
             url,
             timeout=timeout,
-            headers={"User-Agent": "LocalScraper/1.0"}
+            headers={"User-Agent": "LocalScraper/1.0"},
+            allow_redirects=False,  # don't let a redirect bounce us off localhost
         )
     except requests.RequestException as exc:
         return {
@@ -66,7 +84,8 @@ def get_local_server_content(url: str, timeout: int = 5) -> dict[str, bool | Non
     }
 
 
-def execute_generic_linux_command(command: str, use_shell: bool = False, timeout: int = 120) -> dict:
+def execute_generic_linux_command(command: str, use_shell: bool = False, timeout: int = 120,
+                                  authorized: bool = False) -> dict:
     """
     Execute a generic Linux command using subprocess module.
 
@@ -75,10 +94,18 @@ def execute_generic_linux_command(command: str, use_shell: bool = False, timeout
        use_shell (bool): Run via the shell so pipes, redirects, globs and "&&"
                          work, e.g. "cat f | grep x". (default = False)
        timeout (int): Max seconds to wait before aborting the command. (default = 120)
+       authorized (bool): Must be True to run. This is an arbitrary-command
+                         primitive, so it is gated like the other dual-use tools.
 
    Returns:
         dictionary of response -> {"output": output, "error": error}
     """
+    if authorized is not True:
+        return {
+            "output": None,
+            "error": "Refused: pass authorized=True to execute generic commands.",
+            "authorized": False,
+        }
     try:
         if use_shell:
             # Pass the command string to the shell so shell features work.
@@ -111,4 +138,4 @@ if __name__ == "__main__":
     else:
         print(f"Error: {result['error']} (status={result['status_code']})")
 
-    print(execute_generic_linux_command("ls -ls"))
+    print(execute_generic_linux_command("ls -ls", authorized=True))

@@ -76,7 +76,7 @@ fi
 # fails, the recon / brute-force / OpenFuck paths still work without it.
 if command -v msfconsole >/dev/null 2>&1; then
   log "Metasploit already installed; skipping"
-elif command -v curl >/dev/null 2>&1; then
+elif [ "${EDUCATIONCYBER_INSTALL_REMOTE_TOOLS:-}" = "true" ] && command -v curl >/dev/null 2>&1; then
   log "Installing Metasploit Framework (this can take a while)..."
   MSF_INSTALLER="$(mktemp)"
   if curl -fsSL https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb -o "$MSF_INSTALLER"; then
@@ -97,7 +97,7 @@ fi
 # Installed from ProjectDiscovery's GitHub release binary.
 if command -v nuclei >/dev/null 2>&1; then
   log "nuclei already installed; skipping"
-elif command -v curl >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
+elif [ "${EDUCATIONCYBER_INSTALL_REMOTE_TOOLS:-}" = "true" ] && command -v curl >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
   log "Installing nuclei..."
   NUC_VER="$(curl -sL --max-time 30 -o /dev/null -w '%{url_effective}' \
     https://github.com/projectdiscovery/nuclei/releases/latest 2>/dev/null \
@@ -127,6 +127,8 @@ if [ -f "$PROJECT_DIR/hackerEnv" ]; then
   log "hackerEnv marked executable"
 fi
 [ -f "$PROJECT_DIR/tools/web-recon.sh" ] && chmod +x "$PROJECT_DIR/tools/web-recon.sh"
+[ -f "$PROJECT_DIR/tools/setup-arsenal.sh" ] && chmod +x "$PROJECT_DIR/tools/setup-arsenal.sh"
+[ -f "$PROJECT_DIR/tools/engage.sh" ] && chmod +x "$PROJECT_DIR/tools/engage.sh"
 
 # The rockyou wordlist (~130 MB) is intentionally NOT pre-fetched here; the
 # tool's own dependencies() routine downloads it on demand when brute forcing.

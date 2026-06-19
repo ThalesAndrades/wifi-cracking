@@ -182,11 +182,11 @@ def test_trufflehog_parses_jsonl(monkeypatch):
 def test_gitleaks_parses_json(monkeypatch):
     payload = json.dumps([
         {"RuleID": "aws-key", "File": "app.py", "StartLine": 10,
-         "Secret": "AKIA1234567890"},
+         "Secret": "FAKE_TEST_SECRET_TOKEN"},
     ])
     monkeypatch.setattr(kali_secrets, "run_command", lambda *a, **k: _fake_output(payload))
 
     result = kali_secrets.gitleaks_scan("/repo")
     assert result["count"] == 1
     assert result["findings"][0]["rule"] == "aws-key"
-    assert result["findings"][0]["secret_preview"] == "AKIA1234…"
+    assert result["findings"][0]["secret_preview"] == "FAKE_TES…"

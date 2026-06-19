@@ -23,7 +23,9 @@ def _stub(name: str, **attrs) -> None:
     try:
         __import__(name)
         return
-    except Exception:
+    except ModuleNotFoundError:
+        # Only stub genuinely missing modules; let real import-time errors
+        # (e.g. a broken dependency) propagate instead of masking them.
         module = types.ModuleType(name)
         for key, value in attrs.items():
             setattr(module, key, value)

@@ -11,7 +11,9 @@ TARGET=""; OUTDIR=""; YES=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help) echo "Usage: $0 <url-or-domain> [-o OUTDIR] [-y]"; exit 0 ;;
-    -o) OUTDIR="${2:-}"; shift 2 ;;
+    -o)
+      [ $# -ge 2 ] && [ -n "${2:-}" ] || { echo -e "${RED}Option -o requires a value.${RST}"; exit 1; }
+      OUTDIR="$2"; shift 2 ;;
     -y) YES=1; shift ;;
     *) TARGET="$1"; shift ;;
   esac

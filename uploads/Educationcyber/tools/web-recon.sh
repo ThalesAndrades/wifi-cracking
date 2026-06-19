@@ -23,7 +23,9 @@ TARGET=""; OUTDIR=""; ASSUME_YES=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help) usage 0 ;;
-    -o) OUTDIR="${2:-}"; shift 2 ;;
+    -o)
+      [ $# -ge 2 ] && [ -n "${2:-}" ] || { echo "Option -o requires a value." >&2; usage 1; }
+      OUTDIR="$2"; shift 2 ;;
     -y) ASSUME_YES=1; shift ;;
     -*) echo "Unknown option: $1" >&2; usage 1 ;;
     *)  TARGET="$1"; shift ;;
@@ -38,7 +40,20 @@ if [[ "$TARGET" =~ ^https?:// ]]; then
 else
   URL="http://$TARGET"
 fi
-HOST="$(printf '%s' "$URL" | sed -E 's#^https?://##; s#/.*$##; s#:.*$##')"
+# Keep host and (optional) explicit port separate so we can scan the real port.
+# Handle bracketed IPv6 ([::1]:8080) as well as host:port, and validate the port.
+AUTHORITY="$(printf '%s' "$URL" | sed -E 's#^https?://##; s#/.*$##')"
+HOST=""; PORT=""
+if [[ "$AUTHORITY" =~ ^\[([0-9A-Fa-f:]+)\](:([0-9]{1,5}))?$ ]]; then
+  HOST="${BASH_REMATCH[1]}"; PORT="${BASH_REMATCH[3]}"
+elif [[ "$AUTHORITY" =~ ^([^:]+)(:([0-9]{1,5}))?$ ]]; then
+  HOST="${BASH_REMATCH[1]}"; PORT="${BASH_REMATCH[3]}"
+else
+  echo -e "${RED}Invalid target URL authority: ${AUTHORITY}${RST}" >&2; usage 1
+fi
+if [ -n "$PORT" ] && { [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; }; then
+  echo -e "${RED}Invalid port in URL: ${PORT}${RST}" >&2; usage 1
+fi
 SCHEME="$(printf '%s' "$URL" | grep -oP '^https?')"
 
 : "${OUTDIR:=webrecon-${HOST}-$(date +%Y%m%d-%H%M%S)}"
@@ -65,10 +80,12 @@ else skip dig; fi
 
 # --- 2. nmap (service detection + SAFE http info scripts) ------------------
 step "2/6 Port & service scan (nmap, info scripts only)"
+PORTS="80,443,8080,8443,8000,8888"
+[ -n "$PORT" ] && PORTS="$PORT,$PORTS"
 if have nmap; then
   nmap -Pn -sV -T3 \
     --script http-title,http-headers,http-server-header,ssl-cert \
-    -p 80,443,8080,8443,8000,8888 \
+    -p "$PORTS" \
     -oN "$OUTDIR/nmap.txt" "$HOST" | tail -n +1
 else skip nmap; fi
 
@@ -83,10 +100,11 @@ if have whatweb; then
 else skip whatweb; fi
 
 # --- 4. sslscan (TLS configuration) ----------------------------------------
-if [ "$SCHEME" = "https" ] || nc -z -w2 "$HOST" 443 2>/dev/null; then
+TLS_PORT="${PORT:-443}"
+if [ "$SCHEME" = "https" ] || { have nc && nc -z -w2 "$HOST" "$TLS_PORT" 2>/dev/null; }; then
   step "4/6 TLS configuration (sslscan)"
   if have sslscan; then
-    sslscan --no-colour "$HOST" | tee "$OUTDIR/sslscan.txt"
+    sslscan --no-colour "${HOST}:${TLS_PORT}" | tee "$OUTDIR/sslscan.txt"
   else skip sslscan; fi
 else
   step "4/6 TLS configuration"; echo "no HTTPS detected, skipping"

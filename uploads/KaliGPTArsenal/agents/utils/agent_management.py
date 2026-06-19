@@ -174,13 +174,17 @@ def change_ai_model():
 
     updated = False
     attempt = 0
-    while not updated and attempt <= 3:
-        set_vendor_name()
+    max_attempts = 3
+    while not updated and attempt < max_attempts:
+        attempt += 1
+        # If vendor selection was cancelled, don't fall through to
+        # set_default_model() (which would dereference an unset SELECTED_VENDOR).
+        if not set_vendor_name():
+            continue
         updated = set_default_model()
         SELECTED_VENDOR = None  # reset for next iteration if needed
-        attempt += 1
 
-    if not updated and attempt >= 3:
+    if not updated and attempt >= max_attempts:
         print("Model Change failed. Try Again ( 3 attempts consumed )...")
 
 def reset_ai_model_to_default():
@@ -287,7 +291,9 @@ def agent_management(task):
             print_all_available_tools()
 
         case "/help":
-            agent_management_options()
+            # Just reprint the help menu; re-entering agent_management_options()
+            # would recurse (it dispatches back into agent_management()).
+            print_agent_management_options()
 
         case "/exit" | "/quit" | "/bye":
             print(f"\n  {Colors.GREEN}Exiting HackerX. See you later!{Colors.RESET}")

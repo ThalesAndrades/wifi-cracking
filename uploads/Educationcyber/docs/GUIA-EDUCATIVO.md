@@ -203,9 +203,12 @@ ln -s /opt/hackerEnv/hackerEnv /usr/local/bin/
 `metasploit-framework`, scripts NSE `nmap-vulners` + `vulscan` e a wordlist
 `rockyou`.
 
-> 💡 **No Claude Code on the web** todas essas dependências (inclusive o
-> Metasploit) são instaladas automaticamente pelo *SessionStart hook* em
-> `.claude/hooks/session-start.sh` — não precisa instalar nada à mão.
+> 💡 **No Claude Code on the web** o *SessionStart hook*
+> (`.claude/hooks/session-start.sh`) instala automaticamente o **núcleo** dessas
+> dependências (nmap, hydra, fping, etc.). O **Metasploit** e o nuclei são
+> **opt-in**: só são baixados quando `EDUCATIONCYBER_INSTALL_REMOTE_TOOLS=true`
+> está definido. O hook também só roda automaticamente quando este projeto está
+> na raiz do repositório (veja o README).
 
 ---
 

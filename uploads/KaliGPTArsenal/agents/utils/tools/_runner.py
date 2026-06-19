@@ -99,6 +99,8 @@ def run_command(args: list, timeout: int = 120, input_text: str = None) -> dict:
     """
     if not args:
         return _result(False, installed=False, error="No command provided")
+    if not isinstance(args[0], str) or not args[0]:
+        return _result(False, installed=False, error="Invalid command binary")
 
     binary = args[0]
     command = " ".join(str(a) for a in args)

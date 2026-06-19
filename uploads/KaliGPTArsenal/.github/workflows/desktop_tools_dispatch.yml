@@ -73,7 +73,11 @@ jobs:
         run: |
           echo "::group::Installing pip requirements"
           python -m pip install --upgrade pip
-          pip install -r requirements/pip-requirements.txt
+          if [ -f requirements/pip-requirements.txt ]; then
+            pip install -r requirements/pip-requirements.txt
+          else
+            echo "::warning::requirements/pip-requirements.txt not found; skipping pip dependencies"
+          fi
           echo "::endgroup::"
 
       - name: Run test suite

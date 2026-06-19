@@ -1,8 +1,12 @@
 # Practice lab — deliberately vulnerable targets for AUTHORIZED practice only.
 #
-#   docker compose up -d        # start all targets
-#   docker compose ps           # see ports
-#   docker compose down         # stop & remove
+#   docker compose up -d                 # start the default web targets
+#   docker compose --profile net up -d   # also start metasploitable (net profile)
+#   docker compose ps                    # see ports
+#   docker compose down                  # stop & remove
+#
+# NOTE: `docker compose up -d` does NOT start every service — `metasploitable`
+# is gated behind the `net` profile and only starts with `--profile net`.
 #
 # SECURITY: bind only to localhost (127.0.0.1) so the vulnerable apps are NEVER
 # exposed to your network/the internet. Practice from the same machine, or over

@@ -8,7 +8,16 @@
 
 import json
 import logging
-import xml.etree.ElementTree as ET
+
+# nmap output is untrusted (it can be influenced by attacker-controlled targets),
+# so prefer defusedxml to guard against XXE / entity-expansion (billion laughs).
+# Fall back to the stdlib parser if defusedxml is not installed.
+try:
+    from defusedxml import ElementTree as ET
+    from defusedxml.common import DefusedXmlException
+except ImportError:  # pragma: no cover - fallback when defusedxml is unavailable
+    import xml.etree.ElementTree as ET
+    DefusedXmlException = ET.ParseError
 
 from ._runner import run_command, tool_available, validate_arg, invalid_arg, missing_dependency
 
@@ -84,7 +93,7 @@ def nmap_scan(target: str, scan_type: str = "service", ports: str | None = None,
                         "version": service_el.get("version") if service_el is not None else None,
                     })
                 hosts.append({"address": address, "ports": ports_data})
-        except ET.ParseError as exc:
+        except (ET.ParseError, DefusedXmlException) as exc:
             logger.debug("nmap XML parse failed: %s", exc)
 
     result["hosts"] = hosts
@@ -112,19 +121,21 @@ def dns_recon(domain: str, record_types: list[str] | None = None, timeout: int =
 
     record_types = record_types or ["A", "AAAA", "MX", "NS", "TXT"]
     records, errors = {}, []
+    any_success = False
 
     for rtype in record_types:
         if not validate_arg(rtype):
             errors.append(f"Invalid record type: {rtype!r}")
             continue
         res = run_command(["dig", "+short", domain, rtype], timeout=timeout)
-        if res.get("output"):
+        if res.get("success") and res.get("output"):
             values = [line for line in res["output"].splitlines() if line.strip()]
             records[rtype] = values
+            any_success = True
         elif res.get("error"):
             errors.append(f"{rtype}: {res['error']}")
 
-    return {"success": True, "installed": True, "domain": domain,
+    return {"success": any_success, "installed": True, "domain": domain,
             "records": records, "errors": errors}
 
 

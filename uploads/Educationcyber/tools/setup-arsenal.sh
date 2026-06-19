@@ -55,6 +55,7 @@ gh_bin() {  # gh_bin name owner/repo asset-grep [unzip|tgz]
   if curl -fsSL --max-time 180 "$url" -o "$tmp/a"; then
     case "$kind" in
       zip) $SUDO unzip -o -q "$tmp/a" -d /usr/local/bin/ "$name" 2>/dev/null ;;
+      gz)  gzip -cd "$tmp/a" > "$tmp/$name" 2>/dev/null && $SUDO install -m755 "$tmp/$name" /usr/local/bin/ ;;
       tgz) tar -xzf "$tmp/a" -C "$tmp" 2>/dev/null; $SUDO install -m755 "$(find "$tmp" -type f -name "$name" | head -1)" /usr/local/bin/ 2>/dev/null ;;
       raw) $SUDO install -m755 "$tmp/a" "/usr/local/bin/$name" ;;
     esac
@@ -67,7 +68,16 @@ pipx_tool() {  # pipx_tool name [pipspec]  — prefers python3.12 (many tools ne
   have "$name" && { ok "$name (already)"; return; }
   have pipx || apt_install pipx
   py="$(command -v python3.12 || command -v python3)"
-  if have pipx && pipx install --python "$py" "$pkg" >/dev/null 2>&1; then ok "$name (pipx)"; else warn "pipx install failed: $name"; fi
+  # Pin PIPX_HOME/PIPX_BIN_DIR so the CLI symlink lands on PATH, and verify the
+  # command is actually reachable before reporting success.
+  if have pipx && [ -n "$py" ] &&
+     $SUDO env PIPX_HOME="$OPT/pipx" PIPX_BIN_DIR=/usr/local/bin \
+       pipx install --python "$py" "$pkg" >/dev/null 2>&1 &&
+     have "$name"; then
+    ok "$name (pipx)"
+  else
+    warn "pipx install failed or command not on PATH: $name"
+  fi
 }
 
 # --- phases ----------------------------------------------------------------
@@ -86,13 +96,22 @@ phase_scan() {
 }
 phase_web() {
   log "Phase: WEB  (dirs, fuzzing, CMS, SQLi, exposures)"
-  apt_install nikto whatweb gobuster ffuf dirb wfuzz sqlmap
+  # sslscan is needed by web-recon.sh; build-essential + ruby-dev are needed to
+  # compile wpscan's native gem extensions (nokogiri, yajl-ruby, ffi).
+  apt_install nikto whatweb gobuster ffuf dirb wfuzz sqlmap sslscan \
+              build-essential ruby-dev
   gh_bin nuclei projectdiscovery/nuclei "nuclei_{tag}_linux_amd64.zip" zip
   gh_bin feroxbuster epi052/feroxbuster "feroxbuster_{TAG}_x86_64-unknown-linux-gnu.zip" zip
   git_tool commix commixproject/commix commix.py
   git_tool joomscan OWASP/joomscan joomscan.pl
   if have gem; then
-    if gem install --no-document wpscan >/dev/null 2>&1; then ok "wpscan (gem)"; else warn "wpscan gem failed"; fi
+    if gem install --no-document wpscan >/dev/null 2>&1 && have wpscan; then
+      ok "wpscan (gem)"
+    else
+      warn "wpscan install failed or command not on PATH"
+    fi
+  else
+    warn "gem not found; could not install wpscan"
   fi
 }
 phase_exploit() {
@@ -117,7 +136,7 @@ phase_ad() {
   gh_bin kerbrute ropnop/kerbrute "kerbrute_linux_amd64" raw
   git_tool Responder lgandx/Responder Responder.py
   if have gem; then
-    if gem install --no-document evil-winrm >/dev/null 2>&1; then ok "evil-winrm (gem)"; else warn "evil-winrm gem failed"; fi
+    if gem install --no-document evil-winrm >/dev/null 2>&1 && have evil-winrm; then ok "evil-winrm (gem)"; else warn "evil-winrm install failed or command not on PATH"; fi
   fi
   log "  netexec (nxc) — install the 'password' phase — is your AD swiss-army knife."
 }
@@ -129,7 +148,7 @@ phase_password() {
 phase_postex() {
   log "Phase: POST-EXPLOITATION / PIVOTING  (tunnels, proxies)"
   apt_install proxychains4 socat
-  gh_bin chisel jpillora/chisel "chisel_{tag}_linux_amd64.gz" tgz
+  gh_bin chisel jpillora/chisel "chisel_{tag}_linux_amd64.gz" gz
   log "  target-side scripts (run ON the box you popped): linPEAS/winPEAS,"
   log "  pspy, LinEnum, PowerSploit — see docs/ARSENAL.md (Phase 6)."
 }
@@ -187,9 +206,18 @@ phase_wordlists() {
   if [ ! -f /usr/share/wordlists/rockyou.txt ]; then
     $SUDO mkdir -p /usr/share/wordlists
     if [ -f /usr/share/wordlists/rockyou.txt.gz ]; then $SUDO gzip -d /usr/share/wordlists/rockyou.txt.gz
-    else $SUDO wget -q -O /usr/share/wordlists/rockyou.txt \
-      https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt 2>/dev/null; fi
-    if [ -f /usr/share/wordlists/rockyou.txt ]; then ok "rockyou"; else warn "rockyou download failed"; fi
+    else
+      # Download to a temp file and only install it if non-empty, so a failed
+      # download doesn't leave a zero-byte file that future runs treat as done.
+      tmp_rockyou="$(mktemp)"
+      if wget -q -O "$tmp_rockyou" \
+        https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt 2>/dev/null &&
+        [ -s "$tmp_rockyou" ]; then
+        $SUDO install -m644 "$tmp_rockyou" /usr/share/wordlists/rockyou.txt
+      fi
+      rm -f "$tmp_rockyou"
+    fi
+    if [ -s /usr/share/wordlists/rockyou.txt ]; then ok "rockyou"; else warn "rockyou download failed"; fi
   else ok "rockyou (already)"; fi
 }
 

@@ -83,7 +83,11 @@ TOOL_CATEGORIES = {
 }
 
 # Dual-use tools that require an explicit authorized=True flag before they run.
-DUAL_USE_TOOLS = {"sqlmap_test", "hydra_spray", "hashcat_crack"}
+DUAL_USE_TOOLS = {
+    "sqlmap_test", "hydra_spray", "hashcat_crack",
+    "execute_generic_linux_command",
+    "web_request_analysis", "get_raw_response",
+}
 
 
 def get_tools_info():
